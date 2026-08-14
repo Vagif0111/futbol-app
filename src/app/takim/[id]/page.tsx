@@ -45,7 +45,7 @@ export default function TeamPage() {
 
   return (
     <div>
-      <div className="flex flex-col items-center gap-2 border-b border-border p-5">
+      <div className="flex flex-col items-center gap-2 border-b border-border bg-gradient-to-b from-surface2 to-bg p-6">
         <Image src={team.logo} alt="" width={56} height={56} unoptimized />
         <h1 className="text-lg font-semibold text-white">{team.name}</h1>
         <p className="text-xs text-neutral-500">

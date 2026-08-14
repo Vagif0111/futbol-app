@@ -35,7 +35,7 @@ export default function PlayerPage() {
 
   return (
     <div>
-      <div className="flex flex-col items-center gap-2 border-b border-border p-5">
+      <div className="flex flex-col items-center gap-2 border-b border-border bg-gradient-to-b from-surface2 to-bg p-6">
         <Image src={player.photo} alt="" width={72} height={72} unoptimized className="rounded-full" />
         <h1 className="text-lg font-semibold text-white">{player.name}</h1>
         <p className="text-xs text-neutral-500">

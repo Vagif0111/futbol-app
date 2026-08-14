@@ -21,7 +21,7 @@ export default function LeaguePage() {
 
   return (
     <div>
-      <div className="border-b border-border p-4">
+      <div className="border-b border-border bg-gradient-to-b from-surface2 to-bg p-5">
         <h1 className="text-lg font-semibold text-white">{leagueMeta?.name ?? "Lig"}</h1>
       </div>
 

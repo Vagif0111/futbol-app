@@ -25,7 +25,7 @@ export default function MatchDetailPage() {
 
   return (
     <div>
-      <div className="border-b border-border p-4">
+      <div className="border-b border-border bg-gradient-to-b from-surface2 to-bg p-5">
         <p className="mb-2 text-center text-xs text-neutral-500">
           {fixture.league.name} · {fixture.league.round}
         </p>

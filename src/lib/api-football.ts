@@ -85,18 +85,29 @@ export async function getLiveFixtures(): Promise<Fixture[]> {
   return raw.map(mapFixture);
 }
 
+// API-Football sezonları "başlangıç yılı" ile adlandırır (örn. 2025-26 sezonu -> 2025).
+// Avrupa liglerinde sezon genelde Temmuz civarı başlar.
+function currentSeasonYear(): number {
+  const now = new Date();
+  const year = now.getFullYear();
+  return now.getMonth() >= 6 ? year : year - 1; // ay 0-index, 6 = Temmuz
+}
+
 export async function getUpcomingFixtures(teamId?: number, leagueId?: number): Promise<Fixture[]> {
   const key = `fixtures:next:${teamId ?? "all"}:${leagueId ?? "all"}`;
+  // league parametresi season olmadan API'de "geçersiz istek" hatası veriyor.
+  const season = leagueId ? currentSeasonYear() : undefined;
   const raw = await cachedGet<any[]>(key, 300, "/fixtures", {
-    next: 15, team: teamId, league: leagueId,
+    next: 15, team: teamId, league: leagueId, season,
   });
   return raw.map(mapFixture);
 }
 
 export async function getRecentFixtures(teamId?: number, leagueId?: number): Promise<Fixture[]> {
   const key = `fixtures:last:${teamId ?? "all"}:${leagueId ?? "all"}`;
+  const season = leagueId ? currentSeasonYear() : undefined;
   const raw = await cachedGet<any[]>(key, 300, "/fixtures", {
-    last: 15, team: teamId, league: leagueId,
+    last: 15, team: teamId, league: leagueId, season,
   });
   return raw.map(mapFixture);
 }
