@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { FixtureListGrouped } from "@/components/MatchCard";
@@ -8,22 +8,43 @@ import { LoadingState, ErrorState, EmptyState } from "@/components/StatusMessage
 import { getFavorites, type FavoriteItem } from "@/lib/favorites";
 import type { Fixture } from "@/types/football";
 
-type Tab = "today" | "tomorrow" | "live" | "recent";
+type Mode = "date" | "live";
 
-const TAB_CONFIG: Record<Tab, { label: string; url: string; poll?: number }> = {
-  today: { label: "Bugün", url: "/api/fixtures/today" },
-  tomorrow: { label: "Yarın", url: "/api/fixtures/tomorrow" },
-  live: { label: "Canlı", url: "/api/fixtures/live", poll: 60_000 },
-  recent: { label: "Son Maçlar", url: "/api/fixtures/recent" },
-};
+function toISODate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
 
-const todayLabel = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "long" });
+function addDays(iso: string, delta: number): string {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + delta);
+  return toISODate(d);
+}
+
+function dateDisplayLabel(iso: string): string {
+  const today = toISODate(new Date());
+  const yesterday = addDays(today, -1);
+  const tomorrow = addDays(today, 1);
+  if (iso === today) return "Bugün";
+  if (iso === yesterday) return "Dün";
+  if (iso === tomorrow) return "Yarın";
+  return new Date(iso + "T00:00:00Z").toLocaleDateString("tr-TR", {
+    day: "numeric", month: "long", weekday: "short",
+  });
+}
 
 export default function HomePage() {
-  const [tab, setTab] = useState<Tab>("today");
+  const [mode, setMode] = useState<Mode>("date");
+  const [date, setDate] = useState(() => toISODate(new Date()));
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
-  const cfg = TAB_CONFIG[tab];
-  const { data, error, loading, refetch } = useApi<Fixture[]>(cfg.url, { pollMs: cfg.poll });
+
+  const url = mode === "live" ? "/api/fixtures/live" : `/api/fixtures/date?date=${date}`;
+  const poll = mode === "live" ? 60_000 : undefined;
+  const { data, error, loading, refetch } = useApi<Fixture[]>(url, { pollMs: poll });
+
+  const favLeagueIds = useMemo(
+    () => favorites.filter((f) => f.kind === "league").map((f) => f.id),
+    [favorites]
+  );
 
   useEffect(() => {
     setFavorites(getFavorites());
@@ -31,13 +52,12 @@ export default function HomePage() {
 
   return (
     <div>
-      <header className="bg-gradient-to-b from-surface2 to-bg px-4 pb-4 pt-6">
+      <header className="bg-gradient-to-b from-surface2 to-bg px-4 pb-3 pt-6">
         <h1 className="text-xl font-bold text-white">⚽ Futbol</h1>
-        <p className="mt-0.5 text-xs capitalize text-neutral-500">{todayLabel}</p>
       </header>
 
       {favorites.length > 0 && (
-        <section className="mb-1 px-4 pt-3">
+        <section className="mb-1 px-4">
           <p className="mb-1.5 text-xs font-medium text-neutral-500">Favoriler</p>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {favorites.map((f) => (
@@ -53,33 +73,67 @@ export default function HomePage() {
         </section>
       )}
 
-      <div className="sticky top-0 z-[5] flex gap-1 border-b border-border bg-bg/95 px-3 pt-3 backdrop-blur">
-        {(Object.keys(TAB_CONFIG) as Tab[]).map((t) => (
+      <div className="sticky top-0 z-[5] border-b border-border bg-bg/95 px-3 pt-3 backdrop-blur">
+        <div className="flex gap-1">
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`rounded-t-lg px-3 py-2 text-sm transition-colors ${
-              tab === t
-                ? "border-b-2 border-accent font-semibold text-white"
-                : "text-neutral-500"
+            onClick={() => setMode("date")}
+            className={`rounded-t-lg px-3 py-2 text-sm ${
+              mode === "date" ? "border-b-2 border-accent font-semibold text-white" : "text-neutral-500"
             }`}
           >
-            {TAB_CONFIG[t].label}
+            Tarihe Göre
           </button>
-        ))}
+          <button
+            onClick={() => setMode("live")}
+            className={`rounded-t-lg px-3 py-2 text-sm ${
+              mode === "live" ? "border-b-2 border-accent font-semibold text-white" : "text-neutral-500"
+            }`}
+          >
+            Canlı
+          </button>
+        </div>
+
+        {mode === "date" && (
+          <div className="flex items-center justify-between gap-2 py-2">
+            <button
+              onClick={() => setDate((d) => addDays(d, -1))}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-neutral-400"
+              aria-label="Önceki gün"
+            >
+              ‹
+            </button>
+
+            <div className="flex flex-1 items-center justify-center gap-2">
+              <span className="text-sm font-medium text-white">{dateDisplayLabel(date)}</span>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => e.target.value && setDate(e.target.value)}
+                style={{ colorScheme: "dark" }}
+                className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-xs text-neutral-400"
+                aria-label="Tarih seç"
+              />
+            </div>
+
+            <button
+              onClick={() => setDate((d) => addDays(d, 1))}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-neutral-400"
+              aria-label="Sonraki gün"
+            >
+              ›
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="p-3">
         {loading && <LoadingState />}
         {!loading && error && <ErrorState message={error} onRetry={refetch} />}
         {!loading && !error && data && data.length === 0 && (
-          <EmptyState message="Bu bölümde gösterilecek maç yok." />
+          <EmptyState message={mode === "live" ? "Şu anda canlı maç yok." : "Bu tarihte maç bulunamadı."} />
         )}
         {!loading && !error && data && data.length > 0 && (
-          <FixtureListGrouped
-            fixtures={data}
-            favoriteLeagueIds={favorites.filter((f) => f.kind === "league").map((f) => f.id)}
-          />
+          <FixtureListGrouped fixtures={data} favoriteLeagueIds={favLeagueIds} />
         )}
       </div>
     </div>
