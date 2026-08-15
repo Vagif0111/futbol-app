@@ -35,14 +35,14 @@ export default function PlayerPage() {
 
   return (
     <div>
-      <div className="flex flex-col items-center gap-2 border-b border-border bg-gradient-to-b from-surface2 to-bg p-6">
+      <div className="flex flex-col items-center gap-2 border-b border-border bg-ink p-6">
         <Image src={player.photo} alt="" width={72} height={72} unoptimized className="rounded-full" />
         <h1 className="text-lg font-semibold text-white">{player.name}</h1>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-muted">
           {player.position ?? "—"} · {player.age ? `${player.age} yaş` : "—"}
           {player.number ? ` · #${player.number}` : ""}
         </p>
-        {s && <p className="text-xs text-neutral-500">{s.team.name}</p>}
+        {s && <p className="text-xs text-muted">{s.team.name}</p>}
         <button
           onClick={() =>
             setFav(
@@ -52,7 +52,7 @@ export default function PlayerPage() {
             )
           }
           className={`mt-1 rounded-full border px-4 py-1.5 text-xs ${
-            fav ? "border-accent text-accent" : "border-border text-neutral-400"
+            fav ? "border-accent text-accent" : "border-border text-muted"
           }`}
         >
           {fav ? "★ Favorilerde" : "☆ Favorilere ekle"}
@@ -65,7 +65,7 @@ export default function PlayerPage() {
             key={y}
             onClick={() => setSeason(y)}
             className={`rounded-full px-3 py-1 text-xs ${
-              season === y ? "bg-accent text-black" : "border border-border text-neutral-400"
+              season === y ? "bg-accent text-white" : "border border-border text-muted"
             }`}
           >
             {y}
@@ -75,7 +75,7 @@ export default function PlayerPage() {
 
       <div className="p-4">
         {!s ? (
-          <p className="text-center text-sm text-neutral-500">Bu sezon için istatistik verisi yok.</p>
+          <p className="text-center text-sm text-muted">Bu sezon için istatistik verisi yok.</p>
         ) : (
           <div className="grid grid-cols-3 gap-3">
             <Stat label="Maç" value={s.appearances} />
@@ -99,8 +99,8 @@ export default function PlayerPage() {
 function Stat({ label, value }: { label: string; value: string | number | null }) {
   return (
     <div className="rounded-lg border border-border bg-surface p-3 text-center">
-      <p className="text-lg font-semibold text-white">{value ?? "—"}</p>
-      <p className="text-[11px] text-neutral-500">{label}</p>
+      <p className="text-lg font-semibold text-ink">{value ?? "—"}</p>
+      <p className="text-[11px] text-muted">{label}</p>
     </div>
   );
 }

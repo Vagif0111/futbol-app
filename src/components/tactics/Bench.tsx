@@ -11,7 +11,7 @@ interface Props {
 export function Bench({ bench, onDrop }: Props) {
   return (
     <div>
-      <p className="mb-1.5 text-xs font-medium text-neutral-500">Yedek Kulübesi</p>
+      <p className="mb-1.5 text-xs font-medium text-muted">Yedek Kulübesi</p>
       <div className="grid grid-cols-4 gap-2">
         {bench.map((player, i) => (
           <div
@@ -30,10 +30,10 @@ export function Bench({ bench, onDrop }: Props) {
                 onDragStart={(e) => setDragData(e, { player, source: { type: "bench", index: i } })}
                 className="w-full"
               >
-                <p className="truncate text-[10px] text-neutral-200">{player.name}</p>
+                <p className="truncate text-[10px] text-ink">{player.name}</p>
               </div>
             ) : (
-              <span className="text-[9px] text-neutral-600">Boş</span>
+              <span className="text-[9px] text-muted">Boş</span>
             )}
           </div>
         ))}

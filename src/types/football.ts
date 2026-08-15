@@ -156,3 +156,8 @@ export const FEATURED_LEAGUES = [
   { id: 2, name: "Şampiyonlar Ligi" },
   { id: 3, name: "Avrupa Ligi" },
 ] as const;
+
+// API-Football lig logoları bu sabit URL kalıbını izler.
+export function leagueLogoUrl(id: number): string {
+  return `https://media.api-sports.io/football/leagues/${id}.png`;
+}

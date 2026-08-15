@@ -45,19 +45,19 @@ export default function TeamPage() {
 
   return (
     <div>
-      <div className="flex flex-col items-center gap-2 border-b border-border bg-gradient-to-b from-surface2 to-bg p-6">
+      <div className="flex flex-col items-center gap-2 border-b border-border bg-ink p-6">
         <Image src={team.logo} alt="" width={56} height={56} unoptimized />
         <h1 className="text-lg font-semibold text-white">{team.name}</h1>
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-muted">
           {team.country ?? "—"}{team.founded ? ` · ${team.founded}` : ""}
         </p>
         {team.venue?.name && (
-          <p className="text-xs text-neutral-500">{team.venue.name}, {team.venue.city}</p>
+          <p className="text-xs text-muted">{team.venue.name}, {team.venue.city}</p>
         )}
         <button
           onClick={() => setFav(toggleFavorite({ kind: "team", id: teamId, name: team.name, logo: team.logo }).some(f => f.id === teamId))}
           className={`mt-1 rounded-full border px-4 py-1.5 text-xs ${
-            fav ? "border-accent text-accent" : "border-border text-neutral-400"
+            fav ? "border-accent text-accent" : "border-border text-muted"
           }`}
         >
           {fav ? "★ Favorilerde" : "☆ Favorilere ekle"}
@@ -71,7 +71,7 @@ export default function TeamPage() {
               key={key}
               onClick={() => setTab(key)}
               className={`flex-1 py-2.5 text-sm ${
-                tab === key ? "border-b-2 border-accent font-medium text-white" : "text-neutral-500"
+                tab === key ? "border-b-2 border-accent font-medium text-ink" : "text-muted"
               }`}
             >
               {label}
@@ -88,10 +88,10 @@ export default function TeamPage() {
             <Link key={p.id} href={`/oyuncu/${p.id}`} className="flex items-center gap-3 px-4 py-2.5">
               <Image src={p.photo} alt="" width={32} height={32} unoptimized className="rounded-full" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-neutral-200">{p.name}</p>
-                <p className="text-xs text-neutral-500">{p.position ?? "—"}</p>
+                <p className="truncate text-sm text-ink">{p.name}</p>
+                <p className="text-xs text-muted">{p.position ?? "—"}</p>
               </div>
-              {p.number != null && <span className="text-xs text-neutral-500">#{p.number}</span>}
+              {p.number != null && <span className="text-xs text-muted">#{p.number}</span>}
             </Link>
           ))}
         </div>

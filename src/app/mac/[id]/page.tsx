@@ -25,8 +25,8 @@ export default function MatchDetailPage() {
 
   return (
     <div>
-      <div className="border-b border-border bg-gradient-to-b from-surface2 to-bg p-5">
-        <p className="mb-2 text-center text-xs text-neutral-500">
+      <div className="border-b border-border bg-ink p-5">
+        <p className="mb-2 text-center text-xs text-muted">
           {fixture.league.name} · {fixture.league.round}
         </p>
         <div className="flex items-center justify-between">
@@ -38,7 +38,7 @@ export default function MatchDetailPage() {
             {live ? (
               <LiveBadge minute={fixture.status.elapsed} />
             ) : (
-              <span className="text-xs text-neutral-500">{fixture.status.long}</span>
+              <span className="text-xs text-muted">{fixture.status.long}</span>
             )}
           </div>
           <TeamHeader name={fixture.away.name} logo={fixture.away.logo} />
@@ -55,7 +55,7 @@ export default function MatchDetailPage() {
             key={key}
             onClick={() => setSection(key)}
             className={`flex-1 py-2.5 text-sm ${
-              section === key ? "border-b-2 border-accent font-medium text-white" : "text-neutral-500"
+              section === key ? "border-b-2 border-accent font-medium text-ink" : "text-muted"
             }`}
           >
             {label}
@@ -76,7 +76,7 @@ function TeamHeader({ name, logo }: { name: string; logo: string }) {
   return (
     <div className="flex w-24 flex-col items-center gap-1.5 text-center">
       <Image src={logo} alt="" width={36} height={36} unoptimized />
-      <span className="text-xs text-neutral-300">{name}</span>
+      <span className="text-xs text-white/90">{name}</span>
     </div>
   );
 }
@@ -102,14 +102,14 @@ function EventsTab({ fixtureId }: { fixtureId: number }) {
     <ul className="space-y-2.5">
       {data.map((e, i) => (
         <li key={i} className="flex items-start gap-2 text-sm">
-          <span className="w-8 shrink-0 text-neutral-500">
+          <span className="w-8 shrink-0 text-muted">
             {e.minute}{e.extraMinute ? `+${e.extraMinute}` : ""}'
           </span>
           <span>{icon(e.type, e.detail)}</span>
-          <span className="text-neutral-200">
+          <span className="text-ink">
             {e.player.name ?? "Bilinmiyor"}
-            {e.assist.name && <span className="text-neutral-500"> (asist: {e.assist.name})</span>}
-            <span className="block text-xs text-neutral-500">{e.team.name}</span>
+            {e.assist.name && <span className="text-muted"> (asist: {e.assist.name})</span>}
+            <span className="block text-xs text-muted">{e.team.name}</span>
           </span>
         </li>
       ))}
@@ -135,20 +135,20 @@ function LineupsTab({ fixtureId }: { fixtureId: number }) {
       {[data.home, data.away].map((team, idx) =>
         team ? (
           <div key={idx}>
-            <p className="mb-1.5 text-xs font-medium text-neutral-400">
+            <p className="mb-1.5 text-xs font-medium text-muted">
               {team.team.name} · {team.formation ?? "—"}
             </p>
-            <ul className="space-y-1 text-xs text-neutral-300">
+            <ul className="space-y-1 text-xs text-ink">
               {team.startXI.map((p) => (
                 <li key={p.id}>
-                  {p.number}. {p.name} <span className="text-neutral-500">({p.position})</span>
+                  {p.number}. {p.name} <span className="text-muted">({p.position})</span>
                 </li>
               ))}
             </ul>
             {team.substitutes.length > 0 && (
               <>
-                <p className="mb-1 mt-2 text-[11px] text-neutral-500">Yedekler</p>
-                <ul className="space-y-1 text-xs text-neutral-500">
+                <p className="mb-1 mt-2 text-[11px] text-muted">Yedekler</p>
+                <ul className="space-y-1 text-xs text-muted">
                   {team.substitutes.map((p) => (
                     <li key={p.id}>{p.number}. {p.name}</li>
                   ))}
@@ -176,15 +176,15 @@ function StatsTab({ fixtureId, home, away }: { fixtureId: number; home: string; 
         const awayStat = data.away[i];
         return (
           <div key={stat.type} className="text-sm">
-            <div className="mb-0.5 flex justify-between text-neutral-300">
+            <div className="mb-0.5 flex justify-between text-ink">
               <span>{stat.home ?? "-"}</span>
-              <span className="text-xs text-neutral-500">{stat.type}</span>
+              <span className="text-xs text-muted">{stat.type}</span>
               <span>{awayStat?.away ?? "-"}</span>
             </div>
           </div>
         );
       })}
-      <p className="pt-1 text-center text-[11px] text-neutral-600">{home} vs {away}</p>
+      <p className="pt-1 text-center text-[11px] text-muted">{home} vs {away}</p>
     </div>
   );
 }

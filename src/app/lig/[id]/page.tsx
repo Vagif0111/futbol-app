@@ -21,7 +21,7 @@ export default function LeaguePage() {
 
   return (
     <div>
-      <div className="border-b border-border bg-gradient-to-b from-surface2 to-bg p-5">
+      <div className="border-b border-border bg-ink p-5">
         <h1 className="text-lg font-semibold text-white">{leagueMeta?.name ?? "Lig"}</h1>
       </div>
 
@@ -35,7 +35,7 @@ export default function LeaguePage() {
             key={key}
             onClick={() => setTab(key)}
             className={`flex-1 py-2.5 text-sm ${
-              tab === key ? "border-b-2 border-accent font-medium text-white" : "text-neutral-500"
+              tab === key ? "border-b-2 border-accent font-medium text-ink" : "text-muted"
             }`}
           >
             {label}
@@ -63,7 +63,7 @@ function StandingsTab({ leagueId }: { leagueId: number }) {
   return (
     <table className="w-full text-xs">
       <thead>
-        <tr className="text-left text-neutral-500">
+        <tr className="text-left text-muted">
           <th className="w-6 py-1.5">#</th>
           <th className="py-1.5">Takım</th>
           <th className="w-6 py-1.5 text-center">O</th>
@@ -74,16 +74,16 @@ function StandingsTab({ leagueId }: { leagueId: number }) {
       <tbody>
         {data.map((row) => (
           <tr key={row.team.id} className="border-t border-border">
-            <td className="py-1.5 text-neutral-500">{row.rank}</td>
+            <td className="py-1.5 text-muted">{row.rank}</td>
             <td className="py-1.5">
-              <Link href={`/takim/${row.team.id}`} className="flex items-center gap-1.5 text-neutral-200">
+              <Link href={`/takim/${row.team.id}`} className="flex items-center gap-1.5 text-ink">
                 <Image src={row.team.logo} alt="" width={16} height={16} unoptimized />
                 <span className="truncate">{row.team.name}</span>
               </Link>
             </td>
-            <td className="py-1.5 text-center text-neutral-400">{row.played}</td>
-            <td className="py-1.5 text-center text-neutral-400">{row.goalsFor - row.goalsAgainst}</td>
-            <td className="py-1.5 text-center font-medium text-white">{row.points}</td>
+            <td className="py-1.5 text-center text-muted">{row.played}</td>
+            <td className="py-1.5 text-center text-muted">{row.goalsFor - row.goalsAgainst}</td>
+            <td className="py-1.5 text-center font-medium text-ink">{row.points}</td>
           </tr>
         ))}
       </tbody>

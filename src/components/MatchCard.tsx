@@ -1,8 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useState, useEffect } from "react";
 import type { Fixture } from "@/types/football";
 import { isLive } from "@/types/football";
-import { LiveBadge } from "./LiveBadge";
+import { isFavorite, toggleFavorite } from "@/lib/favorites";
 
 function statusLabel(f: Fixture): string {
   if (f.status.short === "NS") {
@@ -15,42 +18,64 @@ function statusLabel(f: Fixture): string {
   return f.status.long;
 }
 
+function TeamBlock({ name, logo, align }: { name: string; logo: string; align: "left" | "right" }) {
+  return (
+    <div className={`flex min-w-0 flex-1 flex-col items-center gap-1 ${align === "left" ? "" : ""}`}>
+      <Image src={logo} alt="" width={36} height={36} unoptimized />
+      <span className="line-clamp-1 text-center text-xs font-medium text-ink">{name}</span>
+    </div>
+  );
+}
+
 export function MatchCard({ fixture }: { fixture: Fixture }) {
   const live = isLive(fixture.status.short);
   const played = fixture.goalsHome !== null;
-  const homeWin = played && fixture.goalsHome! > fixture.goalsAway!;
-  const awayWin = played && fixture.goalsAway! > fixture.goalsHome!;
+  const [fav, setFav] = useState(false);
+
+  useEffect(() => {
+    setFav(isFavorite("league", fixture.league.id));
+  }, [fixture.league.id]);
 
   return (
-    <Link
-      href={`/mac/${fixture.id}`}
-      className="flex items-center justify-between rounded-xl border border-border bg-surface px-3.5 py-3 shadow-card active:bg-surface2"
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-2.5">
-        <Image src={fixture.home.logo} alt="" width={26} height={26} unoptimized className="shrink-0" />
-        <span className={`truncate text-sm ${homeWin ? "font-semibold text-white" : "text-neutral-300"}`}>
-          {fixture.home.name}
-        </span>
+    <div className="rounded-2xl border border-border bg-surface p-3 shadow-card">
+      <div className="mb-2 flex items-center gap-1.5">
+        <Image src={fixture.league.logo} alt="" width={16} height={16} unoptimized />
+        <span className="text-[11px] font-medium text-ink">{fixture.league.name}</span>
+        <span className="text-[11px] text-muted">· {fixture.league.country}</span>
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            const next = toggleFavorite({
+              kind: "league", id: fixture.league.id, name: fixture.league.name, logo: fixture.league.logo,
+            });
+            setFav(next.some((f) => f.kind === "league" && f.id === fixture.league.id));
+          }}
+          className={`ml-auto text-sm ${fav ? "text-accent" : "text-muted"}`}
+          aria-label="Favori lig"
+        >
+          {fav ? "★" : "☆"}
+        </button>
       </div>
 
-      <div className="mx-3 flex w-16 shrink-0 flex-col items-center gap-1">
-        {live ? (
-          <LiveBadge minute={fixture.status.elapsed} />
-        ) : (
-          <span className="text-[11px] text-neutral-500">{statusLabel(fixture)}</span>
-        )}
-        <span className="text-base font-bold tabular-nums text-white">
-          {played ? `${fixture.goalsHome} - ${fixture.goalsAway}` : "vs"}
-        </span>
-      </div>
+      <Link href={`/mac/${fixture.id}`} className="flex items-center gap-2">
+        <TeamBlock name={fixture.home.name} logo={fixture.home.logo} align="left" />
 
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5">
-        <span className={`truncate text-right text-sm ${awayWin ? "font-semibold text-white" : "text-neutral-300"}`}>
-          {fixture.away.name}
-        </span>
-        <Image src={fixture.away.logo} alt="" width={26} height={26} unoptimized className="shrink-0" />
-      </div>
-    </Link>
+        <div className="flex w-16 shrink-0 flex-col items-center gap-0.5">
+          {live ? (
+            <span className="flex items-center gap-1 rounded bg-live/10 px-1.5 py-0.5 text-[11px] font-semibold text-live">
+              <span className="h-1.5 w-1.5 rounded-full bg-live" />
+              {fixture.status.elapsed != null ? `${fixture.status.elapsed}'` : "CANLI"}
+            </span>
+          ) : null}
+          <span className="text-base font-bold tabular-nums text-ink">
+            {played ? `${fixture.goalsHome} - ${fixture.goalsAway}` : statusLabel(fixture)}
+          </span>
+          <span className="text-[11px] text-muted">{played ? statusLabel(fixture) : "vs"}</span>
+        </div>
+
+        <TeamBlock name={fixture.away.name} logo={fixture.away.logo} align="right" />
+      </Link>
+    </div>
   );
 }
 
@@ -62,39 +87,17 @@ export function FixtureListGrouped({
   fixtures: Fixture[];
   favoriteLeagueIds?: number[];
 }) {
-  const groups = new Map<number, { id: number; name: string; logo: string; country: string; items: Fixture[] }>();
-  for (const f of fixtures) {
-    const g = groups.get(f.league.id);
-    if (g) g.items.push(f);
-    else groups.set(f.league.id, { id: f.league.id, name: f.league.name, logo: f.league.logo, country: f.league.country, items: [f] });
-  }
-
-  const sorted = Array.from(groups.values()).sort((a, b) => {
-    const aFav = favoriteLeagueIds.includes(a.id);
-    const bFav = favoriteLeagueIds.includes(b.id);
+  const sorted = [...fixtures].sort((a, b) => {
+    const aFav = favoriteLeagueIds.includes(a.league.id);
+    const bFav = favoriteLeagueIds.includes(b.league.id);
     if (aFav && !bFav) return -1;
     if (!aFav && bFav) return 1;
     return 0;
   });
 
   return (
-    <div className="space-y-4">
-      {sorted.map((g) => {
-        const isFav = favoriteLeagueIds.includes(g.id);
-        return (
-          <div key={g.id}>
-            <div className="mb-1.5 flex items-center gap-1.5 px-0.5">
-              <Image src={g.logo} alt="" width={16} height={16} unoptimized />
-              <span className="text-xs font-medium text-neutral-400">{g.name}</span>
-              <span className="text-[11px] text-neutral-600">· {g.country}</span>
-              {isFav && <span className="text-[11px] text-accent">★ Favori</span>}
-            </div>
-            <div className="space-y-2">
-              {g.items.map((f) => <MatchCard key={f.id} fixture={f} />)}
-            </div>
-          </div>
-        );
-      })}
+    <div className="space-y-3">
+      {sorted.map((f) => <MatchCard key={f.id} fixture={f} />)}
     </div>
   );
 }

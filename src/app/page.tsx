@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useApi } from "@/hooks/useApi";
 import { FixtureListGrouped } from "@/components/MatchCard";
 import { LoadingState, ErrorState, EmptyState } from "@/components/StatusMessage";
 import { getFavorites, type FavoriteItem } from "@/lib/favorites";
+import { FEATURED_LEAGUES, leagueLogoUrl } from "@/types/football";
 import type { Fixture } from "@/types/football";
 
 type Mode = "date" | "live";
@@ -24,12 +26,11 @@ function dateDisplayLabel(iso: string): string {
   const today = toISODate(new Date());
   const yesterday = addDays(today, -1);
   const tomorrow = addDays(today, 1);
-  if (iso === today) return "Bugün";
-  if (iso === yesterday) return "Dün";
-  if (iso === tomorrow) return "Yarın";
-  return new Date(iso + "T00:00:00Z").toLocaleDateString("tr-TR", {
-    day: "numeric", month: "long", weekday: "short",
-  });
+  const full = new Date(iso + "T00:00:00Z").toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+  if (iso === today) return `Bugün, ${full}`;
+  if (iso === yesterday) return `Dün, ${full}`;
+  if (iso === tomorrow) return `Yarın, ${full}`;
+  return full;
 }
 
 export default function HomePage() {
@@ -52,41 +53,56 @@ export default function HomePage() {
 
   return (
     <div>
-      <header className="bg-gradient-to-b from-surface2 to-bg px-4 pb-3 pt-6">
-        <h1 className="text-xl font-bold text-white">⚽ Futbol</h1>
+      <header className="flex items-center justify-between bg-ink px-4 py-4">
+        <h1 className="text-2xl font-bold text-white">Futbol</h1>
+        <Link href="/favoriler" aria-label="Favoriler" className="text-xl text-white">☆</Link>
       </header>
 
-      {favorites.length > 0 && (
+      <div className="flex gap-2 overflow-x-auto px-3 py-3">
+        {FEATURED_LEAGUES.map((l) => (
+          <Link
+            key={l.id}
+            href={`/lig/${l.id}`}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 shadow-card"
+          >
+            <Image src={leagueLogoUrl(l.id)} alt="" width={18} height={18} unoptimized />
+            <span className="text-xs font-medium text-ink">{l.name}</span>
+          </Link>
+        ))}
+      </div>
+
+      {favorites.some((f) => f.kind === "team" || f.kind === "player") && (
         <section className="mb-1 px-4">
-          <p className="mb-1.5 text-xs font-medium text-neutral-500">Favoriler</p>
           <div className="flex gap-2 overflow-x-auto pb-1">
-            {favorites.map((f) => (
-              <Link
-                key={`${f.kind}-${f.id}`}
-                href={f.kind === "team" ? `/takim/${f.id}` : f.kind === "player" ? `/oyuncu/${f.id}` : "#"}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-neutral-300"
-              >
-                {f.name}
-              </Link>
-            ))}
+            {favorites
+              .filter((f) => f.kind === "team" || f.kind === "player")
+              .map((f) => (
+                <Link
+                  key={`${f.kind}-${f.id}`}
+                  href={f.kind === "team" ? `/takim/${f.id}` : `/oyuncu/${f.id}`}
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-ink shadow-card"
+                >
+                  {f.name}
+                </Link>
+              ))}
           </div>
         </section>
       )}
 
-      <div className="sticky top-0 z-[5] border-b border-border bg-bg/95 px-3 pt-3 backdrop-blur">
-        <div className="flex gap-1">
+      <div className="px-3 pb-1">
+        <div className="mb-2 flex gap-1">
           <button
             onClick={() => setMode("date")}
-            className={`rounded-t-lg px-3 py-2 text-sm ${
-              mode === "date" ? "border-b-2 border-accent font-semibold text-white" : "text-neutral-500"
+            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+              mode === "date" ? "bg-ink text-white" : "border border-border bg-surface text-muted"
             }`}
           >
             Tarihe Göre
           </button>
           <button
             onClick={() => setMode("live")}
-            className={`rounded-t-lg px-3 py-2 text-sm ${
-              mode === "live" ? "border-b-2 border-accent font-semibold text-white" : "text-neutral-500"
+            className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+              mode === "live" ? "bg-ink text-white" : "border border-border bg-surface text-muted"
             }`}
           >
             Canlı
@@ -94,30 +110,29 @@ export default function HomePage() {
         </div>
 
         {mode === "date" && (
-          <div className="flex items-center justify-between gap-2 py-2">
+          <div className="mb-3 flex items-center justify-between gap-2 rounded-full border border-border bg-surface px-2 py-2 shadow-card">
             <button
               onClick={() => setDate((d) => addDays(d, -1))}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-neutral-400"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted"
               aria-label="Önceki gün"
             >
               ‹
             </button>
 
-            <div className="flex flex-1 items-center justify-center gap-2">
-              <span className="text-sm font-medium text-white">{dateDisplayLabel(date)}</span>
+            <div className="relative flex flex-1 items-center justify-center gap-1.5">
+              <span className="text-sm font-medium text-ink">📅 {dateDisplayLabel(date)}</span>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => e.target.value && setDate(e.target.value)}
-                style={{ colorScheme: "dark" }}
-                className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-xs text-neutral-400"
+                className="absolute inset-0 opacity-0"
                 aria-label="Tarih seç"
               />
             </div>
 
             <button
               onClick={() => setDate((d) => addDays(d, 1))}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-neutral-400"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted"
               aria-label="Sonraki gün"
             >
               ›
@@ -126,7 +141,7 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="p-3">
+      <div className="px-3 pb-3">
         {loading && <LoadingState />}
         {!loading && error && <ErrorState message={error} onRetry={refetch} />}
         {!loading && !error && data && data.length === 0 && (

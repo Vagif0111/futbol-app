@@ -28,7 +28,7 @@ export default function FavoritesPage() {
 
   return (
     <div className="p-4">
-      <h1 className="mb-3 text-lg font-semibold text-white">Favoriler</h1>
+      <h1 className="mb-3 text-lg font-semibold text-ink">Favoriler</h1>
 
       {!hasAny && <EmptyState message="Henüz favori eklemediniz. Takım veya oyuncu sayfasından ekleyebilirsiniz." />}
 
@@ -37,7 +37,7 @@ export default function FavoritesPage() {
         if (items.length === 0) return null;
         return (
           <section key={kind} className="mb-4">
-            <p className="mb-1.5 text-xs font-medium text-neutral-500">{title}</p>
+            <p className="mb-1.5 text-xs font-medium text-muted">{title}</p>
             <div className="divide-y divide-border rounded-md border border-border bg-surface">
               {items.map((item) => (
                 <div key={`${item.kind}-${item.id}`} className="flex items-center justify-between px-3 py-2">
@@ -47,7 +47,7 @@ export default function FavoritesPage() {
                       : item.kind === "player" ? `/oyuncu/${item.id}`
                       : `/lig/${item.id}`
                     }
-                    className="flex min-w-0 flex-1 items-center gap-2 text-sm text-neutral-200"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-sm text-ink"
                   >
                     {item.logo && (
                       <Image src={item.logo} alt="" width={20} height={20} unoptimized className="rounded-full" />
@@ -65,18 +65,18 @@ export default function FavoritesPage() {
       })}
 
       <section>
-        <p className="mb-1.5 text-xs font-medium text-neutral-500">Tüm Ligler</p>
+        <p className="mb-1.5 text-xs font-medium text-muted">Tüm Ligler</p>
         <div className="divide-y divide-border rounded-md border border-border bg-surface">
           {FEATURED_LEAGUES.map((l) => {
             const isFav = favorites.some((f) => f.kind === "league" && f.id === l.id);
             return (
               <div key={l.id} className="flex items-center justify-between px-3 py-2">
-                <Link href={`/lig/${l.id}`} className="text-sm text-neutral-200">{l.name}</Link>
+                <Link href={`/lig/${l.id}`} className="text-sm text-ink">{l.name}</Link>
                 <button
                   onClick={() =>
                     setFavorites(toggleFavorite({ kind: "league", id: l.id, name: l.name, logo: "" }))
                   }
-                  className={`text-xs ${isFav ? "text-accent" : "text-neutral-500"}`}
+                  className={`text-xs ${isFav ? "text-accent" : "text-muted"}`}
                 >
                   {isFav ? "★" : "☆"}
                 </button>
