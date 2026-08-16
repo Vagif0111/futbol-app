@@ -2,7 +2,7 @@ import "server-only";
 import { withCache } from "./cache";
 import type {
   Fixture, MatchEvent, LineupsResponse, StatItem, PlayerProfile,
-  TeamProfile, StandingRow, SearchResult, FixtureStatusShort,
+  TeamProfile, StandingRow, SearchResult, FixtureStatusShort, TeamStatistics,
 } from "@/types/football";
 
 const BASE_URL = "https://v3.football.api-sports.io";
@@ -231,10 +231,11 @@ export async function getTeamSquad(id: number): Promise<{ id: number; name: stri
 }
 
 export async function search(query: string): Promise<SearchResult> {
-  if (query.trim().length < 3) return { teams: [], players: [] };
-  const [teamsRaw, playersRaw] = await Promise.all([
+  if (query.trim().length < 3) return { teams: [], players: [], leagues: [] };
+  const [teamsRaw, playersRaw, leaguesRaw] = await Promise.all([
     cachedGet<any[]>(`search:teams:${query}`, 600, "/teams", { search: query }),
     cachedGet<any[]>(`search:players:${query}`, 600, "/players", { search: query }),
+    cachedGet<any[]>(`search:leagues:${query}`, 600, "/leagues", { search: query }),
   ]);
   return {
     teams: teamsRaw.map((t) => ({ id: t.team.id, name: t.team.name, logo: t.team.logo })),
@@ -242,5 +243,42 @@ export async function search(query: string): Promise<SearchResult> {
       id: p.player.id, name: p.player.name, photo: p.player.photo,
       team: p.statistics?.[0]?.team?.name ?? null,
     })),
+    leagues: leaguesRaw.map((l) => ({
+      id: l.league.id, name: l.league.name, logo: l.league.logo, country: l.country?.name ?? "",
+    })),
+  };
+}
+
+// Bir takımın oynadığı, "current" (aktif) sezona sahip ilk ligi bulur —
+// takım istatistiklerini çekmek için hangi lig/sezon kullanılacağını belirler.
+async function getTeamCurrentLeague(teamId: number): Promise<{ leagueId: number; leagueName: string; season: number } | null> {
+  const raw = await cachedGet<any[]>(`team:${teamId}:current-league`, 3600, "/leagues", { team: teamId, current: "true" });
+  const first = raw[0];
+  if (!first) return null;
+  const season = first.seasons?.[0]?.year ?? currentSeasonYear();
+  return { leagueId: first.league.id, leagueName: first.league.name, season };
+}
+
+export async function getTeamStatistics(teamId: number): Promise<TeamStatistics | null> {
+  const league = await getTeamCurrentLeague(teamId);
+  if (!league) return null;
+  const raw = await cachedGet<any>(
+    `team:${teamId}:stats:${league.leagueId}:${league.season}`,
+    900,
+    "/teams/statistics",
+    { team: teamId, league: league.leagueId, season: league.season }
+  );
+  if (!raw || !raw.fixtures) return null;
+  return {
+    league: { id: league.leagueId, name: league.leagueName, season: league.season },
+    played: raw.fixtures.played?.total ?? 0,
+    wins: raw.fixtures.wins?.total ?? 0,
+    draws: raw.fixtures.draws?.total ?? 0,
+    loses: raw.fixtures.loses?.total ?? 0,
+    goalsFor: raw.goals?.for?.total?.total ?? 0,
+    goalsAgainst: raw.goals?.against?.total?.total ?? 0,
+    cleanSheets: raw.clean_sheet?.total ?? 0,
+    failedToScore: raw.failed_to_score?.total ?? 0,
+    formStreak: raw.form ?? null,
   };
 }

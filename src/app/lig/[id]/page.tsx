@@ -61,33 +61,48 @@ function StandingsTab({ leagueId }: { leagueId: number }) {
   if (!data || data.length === 0) return <EmptyState message="Bu lig için puan durumu verisi yok." />;
 
   return (
-    <table className="w-full text-xs">
-      <thead>
-        <tr className="text-left text-muted">
-          <th className="w-6 py-1.5">#</th>
-          <th className="py-1.5">Takım</th>
-          <th className="w-6 py-1.5 text-center">O</th>
-          <th className="w-6 py-1.5 text-center">Av</th>
-          <th className="w-8 py-1.5 text-center">P</th>
-        </tr>
-      </thead>
-      <tbody>
-        {data.map((row) => (
-          <tr key={row.team.id} className="border-t border-border">
-            <td className="py-1.5 text-muted">{row.rank}</td>
-            <td className="py-1.5">
-              <Link href={`/takim/${row.team.id}`} className="flex items-center gap-1.5 text-ink">
-                <Image src={row.team.logo} alt="" width={16} height={16} unoptimized />
-                <span className="truncate">{row.team.name}</span>
-              </Link>
-            </td>
-            <td className="py-1.5 text-center text-muted">{row.played}</td>
-            <td className="py-1.5 text-center text-muted">{row.goalsFor - row.goalsAgainst}</td>
-            <td className="py-1.5 text-center font-medium text-ink">{row.points}</td>
+    <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card">
+      <table className="w-full min-w-[420px] text-xs">
+        <thead>
+          <tr className="border-b border-border text-left text-muted">
+            <th className="w-6 py-2 pl-2">#</th>
+            <th className="py-2">Takım</th>
+            <th className="w-6 py-2 text-center">O</th>
+            <th className="w-6 py-2 text-center">G</th>
+            <th className="w-6 py-2 text-center">B</th>
+            <th className="w-6 py-2 text-center">M</th>
+            <th className="w-8 py-2 text-center">AG</th>
+            <th className="w-8 py-2 text-center">YG</th>
+            <th className="w-8 py-2 text-center">Av</th>
+            <th className="w-8 py-2 pr-2 text-center">P</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {data.map((row) => (
+            <tr key={row.team.id} className="border-b border-border last:border-0">
+              <td className="py-2 pl-2 text-muted">{row.rank}</td>
+              <td className="py-2">
+                <Link href={`/takim/${row.team.id}`} className="flex items-center gap-1.5 text-ink">
+                  <Image src={row.team.logo} alt="" width={16} height={16} unoptimized />
+                  <span className="truncate">{row.team.name}</span>
+                </Link>
+              </td>
+              <td className="py-2 text-center text-muted">{row.played}</td>
+              <td className="py-2 text-center text-muted">{row.win}</td>
+              <td className="py-2 text-center text-muted">{row.draw}</td>
+              <td className="py-2 text-center text-muted">{row.lose}</td>
+              <td className="py-2 text-center text-muted">{row.goalsFor}</td>
+              <td className="py-2 text-center text-muted">{row.goalsAgainst}</td>
+              <td className="py-2 text-center text-muted">
+                {row.goalsFor - row.goalsAgainst > 0 ? "+" : ""}
+                {row.goalsFor - row.goalsAgainst}
+              </td>
+              <td className="py-2 pr-2 text-center font-semibold text-ink">{row.points}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

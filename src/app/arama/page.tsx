@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { LoadingState, EmptyState } from "@/components/StatusMessage";
-import { FEATURED_LEAGUES } from "@/types/football";
 import type { SearchResult } from "@/types/football";
 
 export default function SearchPage() {
@@ -31,27 +30,28 @@ export default function SearchPage() {
     }, 400);
   }, [q]);
 
-  const matchedLeagues = FEATURED_LEAGUES.filter((l) =>
-    l.name.toLowerCase().includes(q.trim().toLowerCase())
-  );
+  const hasAnyResult =
+    result && (result.leagues.length > 0 || result.teams.length > 0 || result.players.length > 0);
 
   return (
     <div className="p-4">
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Oyuncu, takım veya lig ara…"
+        placeholder="Oyuncu, takım veya lig/turnuva ara…"
         className="w-full rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-ink outline-none"
       />
 
       <div className="mt-4 space-y-4">
         {loading && <LoadingState />}
 
-        {!loading && q.trim().length >= 3 && matchedLeagues.length > 0 && (
-          <Section title="Ligler">
-            {matchedLeagues.map((l) => (
-              <Link key={l.id} href={`/lig/${l.id}`} className="block px-3 py-2 text-sm text-ink">
+        {!loading && result && result.leagues.length > 0 && (
+          <Section title="Ligler / Turnuvalar">
+            {result.leagues.map((l) => (
+              <Link key={l.id} href={`/lig/${l.id}`} className="flex items-center gap-2 px-3 py-2 text-sm text-ink">
+                <Image src={l.logo} alt="" width={20} height={20} unoptimized />
                 {l.name}
+                {l.country && <span className="text-xs text-muted">· {l.country}</span>}
               </Link>
             ))}
           </Section>
@@ -80,9 +80,8 @@ export default function SearchPage() {
           </Section>
         )}
 
-        {!loading && q.trim().length >= 3 && result &&
-          result.teams.length === 0 && result.players.length === 0 && matchedLeagues.length === 0 && (
-            <EmptyState message="Sonuç bulunamadı." />
+        {!loading && q.trim().length >= 3 && result && !hasAnyResult && (
+          <EmptyState message="Sonuç bulunamadı." />
         )}
 
         {q.trim().length > 0 && q.trim().length < 3 && (
@@ -97,7 +96,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div>
       <p className="mb-1 text-xs font-medium text-muted">{title}</p>
-      <div className="divide-y divide-border rounded-md border border-border bg-surface">{children}</div>
+      <div className="divide-y divide-border rounded-md border border-border bg-surface shadow-card">{children}</div>
     </div>
   );
 }

@@ -143,6 +143,20 @@ export interface StandingRow {
 export interface SearchResult {
   teams: { id: number; name: string; logo: string }[];
   players: { id: number; name: string; photo: string; team: string | null }[];
+  leagues: { id: number; name: string; logo: string; country: string }[];
+}
+
+export interface TeamStatistics {
+  league: { id: number; name: string; season: number };
+  played: number;
+  wins: number;
+  draws: number;
+  loses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  cleanSheets: number;
+  failedToScore: number;
+  formStreak: string | null;
 }
 
 // Ana sayfa/Ligler bölümünde sabit olarak gösterilecek lig id'leri (API-Football)
