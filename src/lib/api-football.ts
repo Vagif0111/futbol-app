@@ -93,23 +93,53 @@ function currentSeasonYear(): number {
   return now.getMonth() >= 6 ? year : year - 1; // ay 0-index, 6 = Temmuz
 }
 
+// Ücretsiz API planı bazı sezonlara erişimi kısıtlayabiliyor ("geçersiz istek" hatası).
+// Bu yüzden güncel sezondan geriye doğru birkaç sezon deneyip erişilebilen ilkini kullanıyoruz.
+async function withSeasonFallback<T>(
+  fetcher: (season: number) => Promise<T[]>,
+  startSeason: number = currentSeasonYear(),
+  tries = 4
+): Promise<{ season: number; data: T[] } | null> {
+  for (let i = 0; i < tries; i++) {
+    const season = startSeason - i;
+    try {
+      const data = await fetcher(season);
+      if (data.length > 0) return { season, data };
+    } catch {
+      // bu sezon erişilemiyor, bir öncekini dene
+    }
+  }
+  return null;
+}
+
 export async function getUpcomingFixtures(teamId?: number, leagueId?: number): Promise<Fixture[]> {
-  const key = `fixtures:next:${teamId ?? "all"}:${leagueId ?? "all"}`;
-  // league parametresi season olmadan API'de "geçersiz istek" hatası veriyor.
-  const season = leagueId ? currentSeasonYear() : undefined;
-  const raw = await cachedGet<any[]>(key, 300, "/fixtures", {
-    next: 15, team: teamId, league: leagueId, season,
-  });
-  return raw.map(mapFixture);
+  if (!leagueId) {
+    const raw = await cachedGet<any[]>(`fixtures:next:${teamId ?? "all"}:all`, 300, "/fixtures", {
+      next: 15, team: teamId,
+    });
+    return raw.map(mapFixture);
+  }
+  const found = await withSeasonFallback((season) =>
+    cachedGet<any[]>(`fixtures:next:${teamId ?? "all"}:${leagueId}:${season}`, 300, "/fixtures", {
+      next: 15, team: teamId, league: leagueId, season,
+    })
+  );
+  return found ? found.data.map(mapFixture) : [];
 }
 
 export async function getRecentFixtures(teamId?: number, leagueId?: number): Promise<Fixture[]> {
-  const key = `fixtures:last:${teamId ?? "all"}:${leagueId ?? "all"}`;
-  const season = leagueId ? currentSeasonYear() : undefined;
-  const raw = await cachedGet<any[]>(key, 300, "/fixtures", {
-    last: 15, team: teamId, league: leagueId, season,
-  });
-  return raw.map(mapFixture);
+  if (!leagueId) {
+    const raw = await cachedGet<any[]>(`fixtures:last:${teamId ?? "all"}:all`, 300, "/fixtures", {
+      last: 15, team: teamId,
+    });
+    return raw.map(mapFixture);
+  }
+  const found = await withSeasonFallback((season) =>
+    cachedGet<any[]>(`fixtures:last:${teamId ?? "all"}:${leagueId}:${season}`, 300, "/fixtures", {
+      last: 15, team: teamId, league: leagueId, season,
+    })
+  );
+  return found ? found.data.map(mapFixture) : [];
 }
 
 export async function getFixtureById(id: number): Promise<Fixture | null> {
@@ -177,10 +207,14 @@ export async function getTeamProfile(id: number): Promise<TeamProfile | null> {
   };
 }
 
-export async function getStandings(leagueId: number, season: number): Promise<StandingRow[]> {
-  const raw = await cachedGet<any[]>(`standings:${leagueId}:${season}`, 900, "/standings", { league: leagueId, season });
-  const table = raw[0]?.league?.standings?.[0] ?? [];
-  return table.map((r: any) => ({
+export async function getStandings(leagueId: number): Promise<{ season: number; rows: StandingRow[] } | null> {
+  const found = await withSeasonFallback(async (season) => {
+    const raw = await cachedGet<any[]>(`standings:${leagueId}:${season}`, 900, "/standings", { league: leagueId, season });
+    const table = raw[0]?.league?.standings?.[0] ?? [];
+    return table;
+  });
+  if (!found) return null;
+  const rows: StandingRow[] = found.data.map((r: any) => ({
     rank: r.rank,
     team: { id: r.team.id, name: r.team.name, logo: r.team.logo },
     points: r.points,
@@ -192,6 +226,7 @@ export async function getStandings(leagueId: number, season: number): Promise<St
     goalsAgainst: r.all.goals.against,
     form: r.form ?? null,
   }));
+  return { season: found.season, rows };
 }
 
 export async function getPlayerProfile(id: number, season: number): Promise<PlayerProfile | null> {
@@ -250,27 +285,31 @@ export async function search(query: string): Promise<SearchResult> {
 }
 
 // Bir takımın oynadığı, "current" (aktif) sezona sahip ilk ligi bulur —
-// takım istatistiklerini çekmek için hangi lig/sezon kullanılacağını belirler.
-async function getTeamCurrentLeague(teamId: number): Promise<{ leagueId: number; leagueName: string; season: number } | null> {
+// takım istatistiklerini çekmek için hangi lig kullanılacağını belirler.
+async function getTeamCurrentLeague(teamId: number): Promise<{ leagueId: number; leagueName: string } | null> {
   const raw = await cachedGet<any[]>(`team:${teamId}:current-league`, 3600, "/leagues", { team: teamId, current: "true" });
   const first = raw[0];
   if (!first) return null;
-  const season = first.seasons?.[0]?.year ?? currentSeasonYear();
-  return { leagueId: first.league.id, leagueName: first.league.name, season };
+  return { leagueId: first.league.id, leagueName: first.league.name };
 }
 
 export async function getTeamStatistics(teamId: number): Promise<TeamStatistics | null> {
   const league = await getTeamCurrentLeague(teamId);
   if (!league) return null;
-  const raw = await cachedGet<any>(
-    `team:${teamId}:stats:${league.leagueId}:${league.season}`,
-    900,
-    "/teams/statistics",
-    { team: teamId, league: league.leagueId, season: league.season }
-  );
-  if (!raw || !raw.fixtures) return null;
+
+  const found = await withSeasonFallback(async (season) => {
+    const raw = await cachedGet<any>(
+      `team:${teamId}:stats:${league.leagueId}:${season}`,
+      900,
+      "/teams/statistics",
+      { team: teamId, league: league.leagueId, season }
+    );
+    return raw && raw.fixtures ? [raw] : [];
+  });
+  if (!found) return null;
+  const raw = found.data[0];
   return {
-    league: { id: league.leagueId, name: league.leagueName, season: league.season },
+    league: { id: league.leagueId, name: league.leagueName, season: found.season },
     played: raw.fixtures.played?.total ?? 0,
     wins: raw.fixtures.wins?.total ?? 0,
     draws: raw.fixtures.draws?.total ?? 0,

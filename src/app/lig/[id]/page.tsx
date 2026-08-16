@@ -11,7 +11,6 @@ import { FEATURED_LEAGUES } from "@/types/football";
 import type { Fixture, StandingRow } from "@/types/football";
 
 type Tab = "upcoming" | "recent" | "standings";
-const currentYear = new Date().getFullYear();
 
 export default function LeaguePage() {
   const { id } = useParams<{ id: string }>();
@@ -53,15 +52,17 @@ export default function LeaguePage() {
 }
 
 function StandingsTab({ leagueId }: { leagueId: number }) {
-  const { data, error, loading, refetch } = useApi<StandingRow[]>(
-    `/api/standings?league=${leagueId}&season=${currentYear}`
+  const { data, error, loading, refetch } = useApi<{ season: number; rows: StandingRow[] }>(
+    `/api/standings?league=${leagueId}`
   );
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
-  if (!data || data.length === 0) return <EmptyState message="Bu lig için puan durumu verisi yok." />;
+  if (!data || data.rows.length === 0) return <EmptyState message="Bu lig için puan durumu verisi yok." />;
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card">
+    <div>
+      <p className="mb-2 text-xs text-muted">Sezon {data.season}</p>
+      <div className="overflow-x-auto rounded-xl border border-border bg-surface shadow-card">
       <table className="w-full min-w-[420px] text-xs">
         <thead>
           <tr className="border-b border-border text-left text-muted">
@@ -78,7 +79,7 @@ function StandingsTab({ leagueId }: { leagueId: number }) {
           </tr>
         </thead>
         <tbody>
-          {data.map((row) => (
+          {data.rows.map((row) => (
             <tr key={row.team.id} className="border-b border-border last:border-0">
               <td className="py-2 pl-2 text-muted">{row.rank}</td>
               <td className="py-2">
@@ -102,6 +103,7 @@ function StandingsTab({ leagueId }: { leagueId: number }) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
