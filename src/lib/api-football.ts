@@ -1,5 +1,7 @@
 import "server-only";
 import { withCache } from "./cache";
+import { getFixtureFromDb, upsertFixtureCore, updateFixtureExtra, FINISHED_STATUSES } from "./db";
+import { computeStandingsFromDb } from "./standings-db";
 import type {
   Fixture, MatchEvent, LineupsResponse, StatItem, PlayerProfile,
   TeamProfile, StandingRow, SearchResult, FixtureStatusShort, TeamStatistics,
@@ -142,14 +144,55 @@ export async function getRecentFixtures(teamId?: number, leagueId?: number): Pro
   return found ? found.data.map(mapFixture) : [];
 }
 
+function dbRowToFixture(row: NonNullable<Awaited<ReturnType<typeof getFixtureFromDb>>>): Fixture {
+  return {
+    id: row.id,
+    date: row.date,
+    timestamp: new Date(row.date).getTime() / 1000,
+    status: { short: row.status_short as FixtureStatusShort, long: row.status_long, elapsed: null },
+    league: { id: row.league_id, name: row.league_name, country: row.league_country, logo: row.league_logo, season: row.season },
+    home: { id: row.home_team_id, name: row.home_team_name, logo: row.home_team_logo },
+    away: { id: row.away_team_id, name: row.away_team_name, logo: row.away_team_logo },
+    goalsHome: row.goals_home,
+    goalsAway: row.goals_away,
+  };
+}
+
+async function cacheFixtureIfFinished(f: Fixture): Promise<void> {
+  if (!FINISHED_STATUSES.includes(f.status.short)) return;
+  try {
+    await upsertFixtureCore({
+      id: f.id,
+      leagueId: f.league.id, leagueName: f.league.name, leagueLogo: f.league.logo, leagueCountry: f.league.country,
+      season: f.league.season ?? currentSeasonYear(),
+      date: f.date,
+      statusShort: f.status.short, statusLong: f.status.long,
+      homeTeamId: f.home.id, homeTeamName: f.home.name, homeTeamLogo: f.home.logo,
+      awayTeamId: f.away.id, awayTeamName: f.away.name, awayTeamLogo: f.away.logo,
+      goalsHome: f.goalsHome, goalsAway: f.goalsAway,
+    });
+  } catch {
+    // Veritabanı yoksa/bağlanamıyorsa sessizce geç — uygulama API'den okumaya devam eder.
+  }
+}
+
 export async function getFixtureById(id: number): Promise<Fixture | null> {
+  const dbRow = await getFixtureFromDb(id).catch(() => null);
+  if (dbRow && FINISHED_STATUSES.includes(dbRow.status_short)) {
+    return dbRowToFixture(dbRow);
+  }
   const raw = await cachedGet<any[]>(`fixture:${id}`, 30, "/fixtures", { id });
-  return raw[0] ? mapFixture(raw[0]) : null;
+  const fixture = raw[0] ? mapFixture(raw[0]) : null;
+  if (fixture) await cacheFixtureIfFinished(fixture);
+  return fixture;
 }
 
 export async function getFixtureEvents(id: number): Promise<MatchEvent[]> {
+  const dbRow = await getFixtureFromDb(id).catch(() => null);
+  if (dbRow?.events) return dbRow.events as MatchEvent[];
+
   const raw = await cachedGet<any[]>(`fixture:${id}:events`, 30, "/fixtures/events", { fixture: id });
-  return raw.map((e: any) => ({
+  const events: MatchEvent[] = raw.map((e: any) => ({
     minute: e.time.elapsed,
     extraMinute: e.time.extra ?? null,
     team: { id: e.team.id, name: e.team.name, logo: e.team.logo },
@@ -159,41 +202,65 @@ export async function getFixtureEvents(id: number): Promise<MatchEvent[]> {
     detail: e.detail,
     comments: e.comments,
   }));
+
+  const fixture = await getFixtureById(id);
+  if (fixture && FINISHED_STATUSES.includes(fixture.status.short)) {
+    await updateFixtureExtra(id, { events }).catch(() => {});
+  }
+  return events;
 }
 
 // Sadece RESMİ kadro. API resmi kadro açıklanana kadar boş dizi döner —
 // biz de bunu asla "muhtemel 11" gibi doldurmuyoruz.
 export async function getFixtureLineups(id: number): Promise<LineupsResponse> {
+  const dbRow = await getFixtureFromDb(id).catch(() => null);
+  if (dbRow?.lineups) return dbRow.lineups as LineupsResponse;
+
   const raw = await cachedGet<any[]>(`fixture:${id}:lineups`, 60, "/fixtures/lineups", { fixture: id });
-  if (!raw.length) return { official: false, home: null, away: null };
+  const result = ((): LineupsResponse => {
+    if (!raw.length) return { official: false, home: null, away: null };
+    const mapTeam = (t: any) => ({
+      team: { id: t.team.id, name: t.team.name, logo: t.team.logo },
+      coach: t.coach?.name ?? null,
+      formation: t.formation ?? null,
+      startXI: (t.startXI ?? []).map((p: any) => ({
+        id: p.player.id, name: p.player.name, number: p.player.number,
+        position: p.player.pos, grid: p.player.grid,
+      })),
+      substitutes: (t.substitutes ?? []).map((p: any) => ({
+        id: p.player.id, name: p.player.name, number: p.player.number,
+        position: p.player.pos, grid: p.player.grid,
+      })),
+    });
+    const home = raw[0] ? mapTeam(raw[0]) : null;
+    const away = raw[1] ? mapTeam(raw[1]) : null;
+    return { official: !!(home?.startXI.length || away?.startXI.length), home, away };
+  })();
 
-  const mapTeam = (t: any) => ({
-    team: { id: t.team.id, name: t.team.name, logo: t.team.logo },
-    coach: t.coach?.name ?? null,
-    formation: t.formation ?? null,
-    startXI: (t.startXI ?? []).map((p: any) => ({
-      id: p.player.id, name: p.player.name, number: p.player.number,
-      position: p.player.pos, grid: p.player.grid,
-    })),
-    substitutes: (t.substitutes ?? []).map((p: any) => ({
-      id: p.player.id, name: p.player.name, number: p.player.number,
-      position: p.player.pos, grid: p.player.grid,
-    })),
-  });
-
-  const home = raw[0] ? mapTeam(raw[0]) : null;
-  const away = raw[1] ? mapTeam(raw[1]) : null;
-  return { official: !!(home?.startXI.length || away?.startXI.length), home, away };
+  const fixture = await getFixtureById(id);
+  if (fixture && FINISHED_STATUSES.includes(fixture.status.short) && result.official) {
+    await updateFixtureExtra(id, { lineups: result }).catch(() => {});
+  }
+  return result;
 }
 
 export async function getFixtureStatistics(id: number): Promise<{ home: StatItem[]; away: StatItem[] }> {
+  const dbRow = await getFixtureFromDb(id).catch(() => null);
+  if (dbRow?.statistics) return dbRow.statistics as { home: StatItem[]; away: StatItem[] };
+
   const raw = await cachedGet<any[]>(`fixture:${id}:stats`, 60, "/fixtures/statistics", { fixture: id });
-  if (raw.length < 2) return { home: [], away: [] };
   const homeRaw = raw[0]?.statistics ?? [];
   const awayRaw = raw[1]?.statistics ?? [];
-  const home: StatItem[] = homeRaw.map((s: any) => ({ type: s.type, home: s.value, away: null }));
-  const away: StatItem[] = awayRaw.map((s: any) => ({ type: s.type, home: null, away: s.value }));
-  return { home, away };
+  const result = {
+    home: homeRaw.map((s: any) => ({ type: s.type, home: s.value, away: null })) as StatItem[],
+    away: awayRaw.map((s: any) => ({ type: s.type, home: null, away: s.value })) as StatItem[],
+  };
+
+  const fixture = await getFixtureById(id);
+  if (fixture && FINISHED_STATUSES.includes(fixture.status.short) && raw.length >= 2) {
+    await updateFixtureExtra(id, { statistics: result }).catch(() => {});
+  }
+  return result;
 }
 
 export async function getTeamProfile(id: number): Promise<TeamProfile | null> {
@@ -207,11 +274,34 @@ export async function getTeamProfile(id: number): Promise<TeamProfile | null> {
   };
 }
 
+// Sezon başından itibaren o ligin TÜM maçlarını tek istekte çekip veritabanına
+// kaydeder (bitmiş olanları). Puan durumunu API'nin sezon kısıtından bağımsız
+// hale getirir. /api/admin/backfill ve günlük cron tarafından çağrılır.
+export async function backfillLeagueSeason(leagueId: number): Promise<{ season: number; count: number } | null> {
+  const found = await withSeasonFallback((season) =>
+    cachedGet<any[]>(`backfill:${leagueId}:${season}`, 60, "/fixtures", { league: leagueId, season })
+  );
+  if (!found) return null;
+  let count = 0;
+  for (const raw of found.data) {
+    const f = mapFixture(raw);
+    if (FINISHED_STATUSES.includes(f.status.short)) {
+      await cacheFixtureIfFinished(f);
+      count++;
+    }
+  }
+  return { season: found.season, count };
+}
+
 export async function getStandings(leagueId: number): Promise<{ season: number; rows: StandingRow[] } | null> {
-  const found = await withSeasonFallback(async (season) => {
-    const raw = await cachedGet<any[]>(`standings:${leagueId}:${season}`, 900, "/standings", { league: leagueId, season });
-    const table = raw[0]?.league?.standings?.[0] ?? [];
-    return table;
+  const season = currentSeasonYear();
+  const dbRows = await computeStandingsFromDb(leagueId, season).catch(() => []);
+  if (dbRows.length > 0) return { season, rows: dbRows };
+
+  // Veritabanında henüz veri yoksa (backfill yapılmamış), API'den canlı çek.
+  const found = await withSeasonFallback(async (s) => {
+    const raw = await cachedGet<any[]>(`standings:${leagueId}:${s}`, 900, "/standings", { league: leagueId, season: s });
+    return raw[0]?.league?.standings?.[0] ?? [];
   });
   if (!found) return null;
   const rows: StandingRow[] = found.data.map((r: any) => ({
